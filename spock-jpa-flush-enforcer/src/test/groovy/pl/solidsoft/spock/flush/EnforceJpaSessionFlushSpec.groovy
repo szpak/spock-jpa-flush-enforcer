@@ -1,14 +1,11 @@
 package pl.solidsoft.spock.flush
 
-import org.springframework.beans.factory.annotation.Autowired
-import spock.lang.Specification
-
 import jakarta.persistence.EntityManager
+import spock.lang.Specification
 
 @EnforceJpaSessionFlush
 class EnforceJpaSessionFlushSpec extends Specification {
 
-    @Autowired
     private EntityManager entityManager = Mock()
 
     void "foo"() {
