@@ -35,16 +35,19 @@ class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
     @PendingFeature(reason = "Probably allow to point one field with some annotation")
     void "should fail with meaningful error if more than one flushable field is found"() {}
 
-    void "should use flushable field in super class"() {
+    @PendingFeature(reason = "Just one variant, annotation in super class only is not detected")
+    void "should use flushable field in super class (#description)"() {
         given:
             runner.addClassImport(EntityManager)
         when:
             def result = runner.runWithImports("""
+
+          ${superClassAnnotationString}  
           abstract class SuperA extends Specification {
             protected EntityManager entityManager = Mock()
           }
           
-          @EnforceJpaSessionFlush
+          ${classAnnotationString}  
           class A extends SuperA {
 
             def testWithWhenAndThen() {
@@ -57,6 +60,11 @@ class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
             """)
         then:
             result.testsSucceededCount == 1
+        where:
+            superClassAnnotationString              | classAnnotationString                   | description
+            "@${EnforceJpaSessionFlush.simpleName}" | "@${EnforceJpaSessionFlush.simpleName}" | "ann in class"
+            "@${EnforceJpaSessionFlush.simpleName}" | ""                                      | "ann in super class"
+            "@${EnforceJpaSessionFlush.simpleName}" | "@${EnforceJpaSessionFlush.simpleName}" | "ann in both classes"
     }
 
     @PendingFeature(reason = "Interceptor is not added (yet) in super class")    //TODO: How to test it best?
