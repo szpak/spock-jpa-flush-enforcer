@@ -2,12 +2,15 @@ package pl.solidsoft.spock.flush
 
 import jakarta.persistence.EntityManager
 import org.spockframework.runtime.SpockException
+import spock.lang.PendingFeature
 
 class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
 
+    void setup() {
+        runner.addClassImport(EnforceJpaSessionFlush)
+    }
+
     void "should fail with meaningful error if no supported flushable field found"() {
-        given:
-            runner.addClassImport(EnforceJpaSessionFlush)
         when:
             runner.runWithImports(
                     """
@@ -31,10 +34,9 @@ class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
 
     void "should fail with meaningful error if flushable field instance set to null "() {
         given:
-            runner.addClassImport(EnforceJpaSessionFlush)
             runner.addClassImport(EntityManager)
         when:
-            def result = runner.runWithImports(
+            runner.runWithImports(
                     """
         @EnforceJpaSessionFlush
         class A extends Specification {
