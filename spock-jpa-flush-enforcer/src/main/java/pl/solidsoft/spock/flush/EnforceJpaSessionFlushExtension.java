@@ -92,8 +92,7 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
             return null;
         }
 
-        //getAllFields? what with order?
-        return spec.getFields().stream()
+        return spec.getAllFields().stream()
                 .filter(fieldInfo -> isAssignableFromAnySupported(fieldInfo.getType()))
                 .findFirst()
                 .orElse(null);  //TODO

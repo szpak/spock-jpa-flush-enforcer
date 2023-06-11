@@ -32,6 +32,33 @@ class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
             e.message.contains("jakarta.persistence.EntityManager")
     }
 
+    @PendingFeature(reason = "Probably allow to point one field with some annotation")
+    void "should fail with meaningful error if more than one flushable field is found"() {}
+
+    void "should use flushable field in super class"() {
+        given:
+            runner.addClassImport(EntityManager)
+        when:
+            def result = runner.runWithImports("""
+          class SuperA extends Specification {
+            protected EntityManager entityManager = Mock()
+          }
+          
+          @EnforceJpaSessionFlush
+          class A extends SuperA {
+
+            def testWithWhenAndThen() {
+              when:
+                1
+              then:
+                1 * entityManager.flush()
+            }
+          }
+            """)
+        then:
+            result.testsSucceededCount == 1
+    }
+
     void "should fail with meaningful error if flushable field instance set to null "() {
         given:
             runner.addClassImport(EntityManager)
