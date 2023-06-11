@@ -7,56 +7,59 @@ import spock.lang.Specification
 class EnforceJpaSessionFlushSpec extends Specification {
 
     private EntityManager entityManager = Mock()
+    private List<String> calls = []
 
     void "foo"() {
         when:
-            println "when"
-
+            recordAction("when")
         then:
-            println "then"
-
+            recordAction("then")
+        and:
             1 * entityManager.flush() >> {
-                println "=== flushed ==="
+                recordAction("flush")
             }
+        then:
+            calls == ["when", "flush", "then"]
     }
 
     void "foo - parameterized"() {
         when:
-            println "when"
-
+            recordAction("when")
         then:
-            println "then"
-
+            recordAction("then")
+        and:
             1 * entityManager.flush() >> {
-                println "=== flushed ==="
+                recordAction("flush")
             }
-
+        then:
+            calls == ["when", "flush", "then"]
         where:
             i << [1, 2]
     }
 
     void "foo - two blocks"() {
         when:
-            println "when"
-
+            recordAction("when")
         then:
-            println "then"
-
+            recordAction("then")
         and:
             1 * entityManager.flush() >> {
-                println "=== flushed ==="
+                recordAction("flush")
             }
-
         when:
-            println "when2"
-
+            recordAction("when2")
         then:
-            println "then2"
-
+            recordAction("then2")
         and:
             1 * entityManager.flush() >> {
-                println "=== flushed ==="
+                recordAction("flush2")
             }
+        then:
+            calls == ["when", "flush", "then", "when2", "flush2", "then2"]
     }
 
+    private void recordAction(String actionName) {
+        println actionName
+        calls.add(actionName)
+    }
 }
