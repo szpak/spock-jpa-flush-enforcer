@@ -38,10 +38,10 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
     @Override
     public void visitSpecAnnotation(EnforceJpaSessionFlush annotation, SpecInfo spec) {
 
-        FieldInfo entityManagerFieldInfo = findEntityManagerFieldInfo(spec);
-        if (entityManagerFieldInfo == null) {
-            System.out.println("No EntityManager found, ignoring"); //TODO: Error? stdout or logger? - fail to clearly say "something is wrong"
-            return;
+        FieldInfo flushableFieldInfo = findFlushableFieldInfo(spec);
+        if (flushableFieldInfo == null) {
+            throw new SpockException(String.format("No flushable field found in %s class annotated with @%s. Supported flushable types: %s", spec.getName(),
+                    EnforceJpaSessionFlush.class.getSimpleName(), SUPPORTED_FLUSHABLE_CLASSES));
         }
 
         //TODO: support super specifications
@@ -69,13 +69,13 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                             System.out.println("Invocation: " + invocation.getSpec().getName() + "." + invocation.getFeature().getName() + ": " + iterationInfo.getIterationIndex());
                             System.out.println("I ---- Block exited - iteration - " + blockInfo.getKind());
 
-                            Object entityManager = entityManagerFieldInfo.readValue(invocation.getInstance());
+                            Object entityManager = flushableFieldInfo.readValue(invocation.getInstance());
                             if (entityManager != null) {
                                 //TODO: Error checking?
                                 GroovyRuntimeUtil.invokeMethod(entityManager, "flush");
 //                  throw new RuntimeException("Ups");
                             } else {
-                                throw new SpockException(entityManagerFieldInfo.getName() + " instance is null :-/");
+                                throw new SpockException(flushableFieldInfo.getName() + " instance is null :-/");
                             }
                         }
                     };
@@ -87,7 +87,7 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
     }
 
     @Nullable
-    private FieldInfo findEntityManagerFieldInfo(SpecInfo spec) {
+    private FieldInfo findFlushableFieldInfo(SpecInfo spec) {
         if (SUPPORTED_FLUSHABLE_CLASSES.isEmpty()) {
             return null;
         }
