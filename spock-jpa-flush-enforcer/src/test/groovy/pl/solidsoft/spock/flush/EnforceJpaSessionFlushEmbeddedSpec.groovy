@@ -40,7 +40,7 @@ class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
             runner.addClassImport(EntityManager)
         when:
             def result = runner.runWithImports("""
-          class SuperA extends Specification {
+          abstract class SuperA extends Specification {
             protected EntityManager entityManager = Mock()
           }
           
@@ -57,6 +57,38 @@ class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
             """)
         then:
             result.testsSucceededCount == 1
+    }
+
+    @PendingFeature(reason = "Interceptor is not added (yet) in super class")    //TODO: How to test it best?
+    void "should execute flush also in feature from super class"() {
+        given:
+            runner.addClassImport(EntityManager)
+        when:
+            def result = runner.runWithImports("""
+          abstract class SuperA extends Specification {
+            protected EntityManager entityManager = Mock()
+            
+            def testWithWhenAndThenInSuperClass() {
+              when:
+                1
+              then:
+                1 * entityManager.flush()
+            }
+          }
+          
+          @EnforceJpaSessionFlush
+          class A extends SuperA {
+
+            def testWithWhenAndThen() {
+              when:
+                1
+              then:
+                1 * entityManager.flush()
+            }
+          }
+            """)
+        then:
+            result.testsSucceededCount == 2
     }
 
     void "should fail with meaningful error if flushable field instance set to null "() {
