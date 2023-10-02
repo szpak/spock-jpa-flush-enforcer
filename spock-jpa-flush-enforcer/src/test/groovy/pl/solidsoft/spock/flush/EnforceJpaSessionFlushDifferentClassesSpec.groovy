@@ -1,6 +1,7 @@
 package pl.solidsoft.spock.flush
 
 import jakarta.persistence.EntityManager
+
 //import javax.persistence.EntityManager as JavaxEntityManager
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager

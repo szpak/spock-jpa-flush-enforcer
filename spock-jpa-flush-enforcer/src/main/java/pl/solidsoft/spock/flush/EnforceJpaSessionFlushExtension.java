@@ -73,7 +73,6 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                             if (entityManager != null) {
                                 //TODO: Error checking?
                                 GroovyRuntimeUtil.invokeMethod(entityManager, "flush");
-//                  throw new RuntimeException("Ups");
                             } else {
                                 throw new SpockException(flushableFieldInfo.getName() + " instance is null :-/");
                             }
