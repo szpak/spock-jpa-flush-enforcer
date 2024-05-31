@@ -44,12 +44,14 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                     EnforceJpaSessionFlush.class.getSimpleName(), SUPPORTED_FLUSHABLE_CLASSES));
         }
 
-        ThreadLocal<IMethodInvocation> threadInvocation = new ThreadLocal<>();
-        IBlockListener whenExitedBlockListener = createWhenExistedBlockListener(flushableFieldInfo, threadInvocation);
 
         //TODO: support super specifications
         spec.getFeatures().forEach(featureInfo -> {
             System.out.println("adding interceptor for: " + featureInfo.getSpec().getName() + "." + featureInfo.getName()); //TODO: Switch to some API wrapper logging only if extension debug is enabled
+
+            ThreadLocal<IMethodInvocation> threadInvocation = new ThreadLocal<>();
+            IBlockListener whenExitedBlockListener = createWhenExistedBlockListener(flushableFieldInfo, threadInvocation);
+            featureInfo.addBlockListener(whenExitedBlockListener);
 
             featureInfo.addIterationInterceptor(new AbstractMethodInterceptor() {
                 @Override
@@ -58,11 +60,9 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
 
                     try {
                         threadInvocation.set(invocation);
-                        invocation.getFeature().addBlockListener(whenExitedBlockListener);
                         invocation.proceed();
 
                     } finally {
-                        invocation.getFeature().getBlockListeners().remove(whenExitedBlockListener);
                         threadInvocation.remove();
                     }
                 }
