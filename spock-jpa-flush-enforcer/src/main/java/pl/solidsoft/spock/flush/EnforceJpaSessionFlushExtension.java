@@ -58,8 +58,7 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                         public void blockExited(IterationInfo iterationInfo, BlockInfo blockInfo) {
                             System.out.println("II: " + invocation.getIteration().getIterationIndex() + ", " + iterationInfo.getIterationIndex());
                             if (invocation.getIteration().getIterationIndex() != iterationInfo.getIterationIndex()) { //block listener intended for other iteration, ignore this one
-                                System.out.println("Not my iteration, ignoring");
-                                return;
+                                throw new SpockException("BlockListener executed not for its own iteration. Probably regression in extension code");
                             }
                             if (blockInfo.getKind() != BlockKind.WHEN) {
                                 System.out.println("Not WHEN block, ignoring " + blockInfo.getKind());
@@ -78,8 +77,12 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                             }
                         }
                     };
-                    invocation.getFeature().addBlockListener(whenExitedBlockListener);
-                    invocation.proceed();
+                    try {
+                        invocation.getFeature().addBlockListener(whenExitedBlockListener);
+                        invocation.proceed();
+                    } finally {
+                        invocation.getFeature().getBlockListeners().remove(whenExitedBlockListener);
+                    }
                 }
             });
         });
@@ -103,4 +106,9 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                 .anyMatch(fieldType::isAssignableFrom);
     }
 
+    /*
+      TODO:
+       - slf4j API for (optional) debug logging?
+
+     */
 }
