@@ -35,6 +35,8 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                     .filter(Objects::nonNull)
                     .collect(collectingAndThen(toList(), Collections::unmodifiableList)); //could be simplified with just Stream.toList() with JDK 10+
 
+    private static final ThreadLocal<IMethodInvocation> methodInvocationContext = new ThreadLocal<>();
+
     @Override
     public void visitSpecAnnotation(EnforceJpaSessionFlush annotation, SpecInfo spec) {
 
@@ -49,8 +51,7 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
         spec.getFeatures().forEach(featureInfo -> {
             System.out.println("adding interceptor for: " + featureInfo.getSpec().getName() + "." + featureInfo.getName()); //TODO: Switch to some API wrapper logging only if extension debug is enabled
 
-            ThreadLocal<IMethodInvocation> threadInvocation = new ThreadLocal<>();
-            IBlockListener whenExitedBlockListener = createWhenExistedBlockListener(flushableFieldInfo, threadInvocation);
+            IBlockListener whenExitedBlockListener = createWhenExitedBlockListener(flushableFieldInfo);
             featureInfo.addBlockListener(whenExitedBlockListener);
 
             featureInfo.addIterationInterceptor(new AbstractMethodInterceptor() {
@@ -59,11 +60,11 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                     System.out.println("========== IE " + invocation.getIteration().getIterationIndex() + ", BlockListeners for feature: " + invocation.getFeature().getBlockListeners());
 
                     try {
-                        threadInvocation.set(invocation);
+                        methodInvocationContext.set(invocation);
                         invocation.proceed();
 
                     } finally {
-                        threadInvocation.remove();
+                        methodInvocationContext.remove();
                     }
                 }
             });
@@ -88,12 +89,12 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                 .anyMatch(fieldType::isAssignableFrom);
     }
 
-    private static IBlockListener createWhenExistedBlockListener(FieldInfo flushableFieldInfo, ThreadLocal<IMethodInvocation> threadInvocation) {
+    private static IBlockListener createWhenExitedBlockListener(FieldInfo flushableFieldInfo) {
         return new IBlockListener() {
             @Override
             public void blockExited(IterationInfo iterationInfo, BlockInfo blockInfo) {
 
-                IMethodInvocation invocation = threadInvocation.get();
+                IMethodInvocation invocation = methodInvocationContext.get();
                 if (invocation == null) {
                     throw new SpockException("Invocation should not be null in WhenExitedBlockListener. Possible bug in EnforceJpaSessionFlushExtension");
                 }
