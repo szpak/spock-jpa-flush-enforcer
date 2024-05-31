@@ -44,6 +44,9 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                     EnforceJpaSessionFlush.class.getSimpleName(), SUPPORTED_FLUSHABLE_CLASSES));
         }
 
+        ThreadLocal<IMethodInvocation> threadInvocation = new ThreadLocal<>();
+        IBlockListener whenExitedBlockListener = createWhenExistedBlockListener(flushableFieldInfo, threadInvocation);
+
         //TODO: support super specifications
         spec.getFeatures().forEach(featureInfo -> {
             System.out.println("adding interceptor for: " + featureInfo.getSpec().getName() + "." + featureInfo.getName()); //TODO: Switch to some API wrapper logging only if extension debug is enabled
@@ -53,35 +56,14 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
                 public void interceptIterationExecution(IMethodInvocation invocation) throws Throwable {
                     System.out.println("========== IE " + invocation.getIteration().getIterationIndex() + ", BlockListeners for feature: " + invocation.getFeature().getBlockListeners());
 
-                    IBlockListener whenExitedBlockListener = new IBlockListener() {
-                        @Override
-                        public void blockExited(IterationInfo iterationInfo, BlockInfo blockInfo) {
-                            System.out.println("II: " + invocation.getIteration().getIterationIndex() + ", " + iterationInfo.getIterationIndex());
-                            if (invocation.getIteration().getIterationIndex() != iterationInfo.getIterationIndex()) { //block listener intended for other iteration, ignore this one
-                                throw new SpockException("BlockListener executed not for its own iteration. Probably regression in extension code");
-                            }
-                            if (blockInfo.getKind() != BlockKind.WHEN) {
-                                System.out.println("Not WHEN block, ignoring " + blockInfo.getKind());
-                                return;
-                            }
-
-                            System.out.println("Invocation: " + invocation.getSpec().getName() + "." + invocation.getFeature().getName() + ": " + iterationInfo.getIterationIndex());
-                            System.out.println("I ---- Block exited - iteration - " + blockInfo.getKind());
-
-                            Object entityManager = flushableFieldInfo.readValue(invocation.getInstance());
-                            if (entityManager != null) {
-                                //TODO: Error checking?
-                                GroovyRuntimeUtil.invokeMethod(entityManager, "flush");
-                            } else {
-                                throw new SpockException(flushableFieldInfo.getName() + " instance is null :-/");
-                            }
-                        }
-                    };
                     try {
+                        threadInvocation.set(invocation);
                         invocation.getFeature().addBlockListener(whenExitedBlockListener);
                         invocation.proceed();
+
                     } finally {
                         invocation.getFeature().getBlockListeners().remove(whenExitedBlockListener);
+                        threadInvocation.remove();
                     }
                 }
             });
@@ -104,6 +86,38 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
         return SUPPORTED_FLUSHABLE_CLASSES.stream()
                 .filter(Objects::nonNull)
                 .anyMatch(fieldType::isAssignableFrom);
+    }
+
+    private static IBlockListener createWhenExistedBlockListener(FieldInfo flushableFieldInfo, ThreadLocal<IMethodInvocation> threadInvocation) {
+        return new IBlockListener() {
+            @Override
+            public void blockExited(IterationInfo iterationInfo, BlockInfo blockInfo) {
+
+                IMethodInvocation invocation = threadInvocation.get();
+                if (invocation == null) {
+                    throw new SpockException("Invocation should not be null in WhenExitedBlockListener. Possible bug in EnforceJpaSessionFlushExtension");
+                }
+                System.out.println("II: " + invocation.getIteration().getIterationIndex() + ", " + iterationInfo.getIterationIndex());
+                if (invocation.getIteration().getIterationIndex() != iterationInfo.getIterationIndex()) { //block listener intended for other iteration, ignore this one
+                    throw new SpockException("BlockListener executed not for its own iteration. Probably regression in extension code");
+                }
+                if (blockInfo.getKind() != BlockKind.WHEN) {
+                    System.out.println("Not WHEN block, ignoring " + blockInfo.getKind());
+                    return;
+                }
+
+                System.out.println("Invocation: " + invocation.getSpec().getName() + "." + invocation.getFeature().getName() + ": " + iterationInfo.getIterationIndex());
+                System.out.println("I ---- Block exited - iteration - " + blockInfo.getKind());
+
+                Object entityManager = flushableFieldInfo.readValue(invocation.getInstance());
+                if (entityManager != null) {
+                    //TODO: Error checking?
+                    GroovyRuntimeUtil.invokeMethod(entityManager, "flush");
+                } else {
+                    throw new SpockException(flushableFieldInfo.getName() + " instance is null :-/");
+                }
+            }
+        };
     }
 
     /*
