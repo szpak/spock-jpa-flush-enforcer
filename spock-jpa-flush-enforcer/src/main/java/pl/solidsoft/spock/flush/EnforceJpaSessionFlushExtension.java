@@ -12,6 +12,7 @@ import org.spockframework.runtime.model.IterationInfo;
 import org.spockframework.runtime.model.SpecInfo;
 import org.spockframework.util.Nullable;
 import org.spockframework.util.ReflectionUtil;
+import spock.lang.Specification;
 
 import java.util.Collections;
 import java.util.List;
@@ -111,26 +112,26 @@ public class EnforceJpaSessionFlushExtension implements IAnnotationDrivenExtensi
         }
 
         @Override
-        public void blockExited(IterationInfo iterationInfo, BlockInfo blockInfo) {
+        public <S extends Specification> void blockExited(S specificationInstance, BlockInfo blockInfo) {
             IMethodInvocation invocation = methodInvocationContext.get();
             if (invocation == null) {
                 throw new FlushExtensionSpockException("Invocation should not be null in ThreadLocal on WhenExitedBlockListener.blockExisted(). " +
                         "Possible bug in EnforceJpaSessionFlushExtension.");    //TODO: Generate debug info?
             }
-            System.out.println("II: " + invocation.getIteration().getIterationIndex() + ", " + iterationInfo.getIterationIndex());
-            if (invocation.getIteration().getIterationIndex() != iterationInfo.getIterationIndex()) {
+            IterationInfo currentIterationInfo = specificationInstance.getSpecificationContext().getCurrentIteration();
+            System.out.println("II: " + invocation.getIteration().getIterationIndex() + ", " + currentIterationInfo.getIterationIndex());
+            if (invocation.getIteration().getIterationIndex() != currentIterationInfo.getIterationIndex()) {
                 throw new FlushExtensionSpockException(format("BlockListener executed not for its own iteration: %d != %d. " +
                         "Probably bug in EnforceJpaSessionFlushExtension.",
-                        invocation.getIteration().getIterationIndex(), iterationInfo.getIterationIndex()));
+                        invocation.getIteration().getIterationIndex(), currentIterationInfo.getIterationIndex()));
             }
             if (blockInfo.getKind() != BlockKind.WHEN) {
                 System.out.println("Not WHEN block, ignoring " + blockInfo.getKind());
                 return;
             }
 
-
-            System.out.println("Invocation: " + iterationInfo.getFeature().getSpec().getName() + "." + iterationInfo.getFeature().getName() +
-                    ": " + iterationInfo.getIterationIndex());
+            System.out.println("Invocation: " + currentIterationInfo.getFeature().getSpec().getName() + "." +
+                    currentIterationInfo.getFeature().getName() + ": " + currentIterationInfo.getIterationIndex());
             System.out.println("I ---- Block exited - iteration - " + blockInfo.getKind());
 
             Object entityManager = flushableFieldInfo.readValue(invocation.getInstance());
