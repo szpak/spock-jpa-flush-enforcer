@@ -35,7 +35,9 @@ class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
     @PendingFeature(reason = "Probably allow to point one field with some annotation")
     void "should fail with meaningful error if more than one flushable field is found"() {}
 
-    @PendingFeature(reason = "Just one variant, annotation in super class only is not detected")
+    @PendingFeature //TODO: Which one to implement?
+    void "should execute flush on all found fields"() {}
+
     void "should use flushable field in super class (#description)"() {
         given:
             runner.addClassImport(EntityManager)
@@ -62,17 +64,54 @@ class EnforceJpaSessionFlushEmbeddedSpec extends EmbeddedSpecification {
             result.testsSucceededCount == 1
         where:
             superClassAnnotationString              | classAnnotationString                   | description
-            "@${EnforceJpaSessionFlush.simpleName}" | "@${EnforceJpaSessionFlush.simpleName}" | "ann in class"
+            ""                                      | "@${EnforceJpaSessionFlush.simpleName}" | "ann in class"
             "@${EnforceJpaSessionFlush.simpleName}" | ""                                      | "ann in super class"
             "@${EnforceJpaSessionFlush.simpleName}" | "@${EnforceJpaSessionFlush.simpleName}" | "ann in both classes"
     }
 
-    @PendingFeature(reason = "Interceptor is not added (yet) in super class")    //TODO: How to test it best?
-    void "should execute flush also in feature from super class"() {
+    //TODO: Would @ in super class find also all flushable fields in bottom specs? - no?
+    //      Maybe better to just look for the fields in the current class (and also all super classes?)? - somehow asymetric :-/
+
+    //TODO: Would @ in super class adds listener to all features from subspecs? - rather yes - field "might" be accessible there (unless private)
+    //      Would @ in class adds listener to all features in superspecs? - rather not - flushable field can be inaccesible there
+
+    void "should not execute flush also in feature from super class"() {
         given:
             runner.addClassImport(EntityManager)
         when:
             def result = runner.runWithImports("""
+          abstract class SuperA extends Specification {
+            protected EntityManager entityManager = Mock()
+            
+            def testWithWhenAndThenInSuperClass() {
+              when:
+                1
+              then:
+                0 * entityManager.flush()
+            }
+          }
+          
+          @EnforceJpaSessionFlush
+          class A extends SuperA {
+
+            def testWithWhenAndThen() {
+              when:
+                1
+              then:
+                1 * entityManager.flush()
+            }
+          }
+            """)
+        then:
+            result.testsSucceededCount == 2
+    }
+
+    void "should not call flush twice if extension applied more than one in hierarchy"() {
+        given:
+            runner.addClassImport(EntityManager)
+        when:
+            def result = runner.runWithImports("""
+          @EnforceJpaSessionFlush
           abstract class SuperA extends Specification {
             protected EntityManager entityManager = Mock()
             
